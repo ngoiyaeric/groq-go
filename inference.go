@@ -41,7 +41,11 @@ func (c *Client) ChatCompletion(
 	if err != nil {
 		return
 	}
-	err = c.sendRequest(req, &response)
+	respChan := make(chan error)
+	go func() {
+		respChan <- c.sendRequest(req, &response)
+	}()
+	err = <-respChan
 	reqErr, ok := err.(*groqerr.APIError)
 	if ok && (reqErr.HTTPStatusCode == http.StatusServiceUnavailable ||
 		reqErr.HTTPStatusCode == http.StatusInternalServerError) {
@@ -70,7 +74,13 @@ func (c *Client) ChatCompletionStream(
 	if err != nil {
 		return nil, err
 	}
-	resp, err := sendRequestStream(c, req)
+	respChan := make(chan error)
+	var resp *streams.StreamReader[*ChatCompletionStreamResponse]
+	go func() {
+		resp, err = sendRequestStream(c, req)
+		respChan <- err
+	}()
+	err = <-respChan
 	if err != nil {
 		return
 	}
@@ -99,7 +109,13 @@ func (c *Client) ChatCompletionJSON(
 		},
 		Type: FormatJSON,
 	}
-	response, err := c.ChatCompletion(ctx, request)
+	respChan := make(chan error)
+	var response ChatCompletionResponse
+	go func() {
+		response, err = c.ChatCompletion(ctx, request)
+		respChan <- err
+	}()
+	err = <-respChan
 	if err != nil {
 		reqErr, ok := err.(*groqerr.APIError)
 		if ok && (reqErr.HTTPStatusCode == http.StatusServiceUnavailable ||
@@ -148,7 +164,11 @@ func (c *Client) Moderate(
 		return
 	}
 	var resp ChatCompletionResponse
-	err = c.sendRequest(req, &resp)
+	respChan := make(chan error)
+	go func() {
+		respChan <- c.sendRequest(req, &resp)
+	}()
+	err = <-respChan
 	if err != nil {
 		return
 	}
@@ -174,7 +194,14 @@ func (c *Client) Transcribe(
 	ctx context.Context,
 	request AudioRequest,
 ) (AudioResponse, error) {
-	return c.callAudioAPI(ctx, request, transcriptionsSuffix)
+	respChan := make(chan error)
+	var response AudioResponse
+	go func() {
+		response, err = c.callAudioAPI(ctx, request, transcriptionsSuffix)
+		respChan <- err
+	}()
+	err := <-respChan
+	return response, err
 }
 
 // Translate calls the translations endpoint with the given request.
@@ -184,7 +211,14 @@ func (c *Client) Translate(
 	ctx context.Context,
 	request AudioRequest,
 ) (AudioResponse, error) {
-	return c.callAudioAPI(ctx, request, translationsSuffix)
+	respChan := make(chan error)
+	var response AudioResponse
+	go func() {
+		response, err = c.callAudioAPI(ctx, request, translationsSuffix)
+		respChan <- err
+	}()
+	err := <-respChan
+	return response, err
 }
 
 // callAudioAPI calls the audio API with the given request.
@@ -213,13 +247,18 @@ func (c *Client) callAudioAPI(
 		return AudioResponse{}, err
 	}
 
-	if request.hasJSONResponse() {
-		err = c.sendRequest(req, &response)
-	} else {
-		var textResponse audioTextResponse
-		err = c.sendRequest(req, &textResponse)
-		response = textResponse.toAudioResponse()
-	}
+	respChan := make(chan error)
+	go func() {
+		if request.hasJSONResponse() {
+			err = c.sendRequest(req, &response)
+		} else {
+			var textResponse audioTextResponse
+			err = c.sendRequest(req, &textResponse)
+			response = textResponse.toAudioResponse()
+		}
+		respChan <- err
+	}()
+	err = <-respChan
 	if err != nil {
 		return AudioResponse{}, err
 	}

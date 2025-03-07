@@ -119,10 +119,25 @@ func (c *Client) sendRequest(req *http.Request, v response) error {
 	if contentType == "" {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	res, err := c.client.Do(req)
-	if err != nil {
+
+	resChan := make(chan *http.Response)
+	errChan := make(chan error)
+	go func() {
+		res, err := c.client.Do(req)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		resChan <- res
+	}()
+
+	var res *http.Response
+	select {
+	case res = <-resChan:
+	case err := <-errChan:
 		return err
 	}
+
 	defer res.Body.Close()
 	if v != nil {
 		v.SetHeader(res.Header)
@@ -158,12 +173,25 @@ func sendRequestStream[T streams.Streamer[ChatCompletionStreamResponse]](
 	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set("Cache-Control", "no-cache")
 	req.Header.Set("Connection", "keep-alive")
-	resp, err := client.client.Do(
-		req,
-	) //nolint:bodyclose // body is closed in stream.Close()
-	if err != nil {
+
+	respChan := make(chan *http.Response)
+	errChan := make(chan error)
+	go func() {
+		resp, err := client.client.Do(req)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		respChan <- resp
+	}()
+
+	var resp *http.Response
+	select {
+	case resp = <-respChan:
+	case err := <-errChan:
 		return new(streams.StreamReader[*ChatCompletionStreamResponse]), err
 	}
+
 	if isFailureStatusCode(resp) {
 		return new(streams.StreamReader[*ChatCompletionStreamResponse]), client.handleErrorResp(resp)
 	}
