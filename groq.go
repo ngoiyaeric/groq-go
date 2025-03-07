@@ -30,6 +30,9 @@ type (
 
 		client *http.Client
 		logger *slog.Logger
+
+		// TaskCompletionEndpoint is the endpoint for task completion.
+		TaskCompletionEndpoint string
 	}
 	// Opts is a function that sets options for a Groq client.
 	Opts func(*Client)
@@ -61,6 +64,7 @@ func NewClient(groqAPIKey string, opts ...Opts) (*Client, error) {
 		logger:             slog.Default(),
 		baseURL:            groqAPIURLv1,
 		emptyMessagesLimit: 10,
+		TaskCompletionEndpoint: "/v1/task/completion",
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -72,6 +76,29 @@ func NewClient(groqAPIKey string, opts ...Opts) (*Client, error) {
 		}
 	}
 	return c, nil
+}
+
+// SignifyTaskCompletion signifies task completion by an LLM.
+func (c *Client) SignifyTaskCompletion(taskID string) error {
+	req, err := builders.NewRequest(
+		context.Background(),
+		c.header,
+		http.MethodPost,
+		c.baseURL+c.TaskCompletionEndpoint,
+		builders.WithBody(map[string]string{"task_id": taskID}),
+	)
+	if err != nil {
+		return err
+	}
+	res, err := c.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to signify task completion: %s", res.Status)
+	}
+	return nil
 }
 
 // fullURL returns full URL for request.
