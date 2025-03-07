@@ -1,3 +1,4 @@
+// Package main shows an example of using the e2b extension.
 package main
 
 import (
@@ -94,29 +95,16 @@ func run(
 				break
 			}
 		}
-
-		resultChan := make(chan []groq.ChatCompletionMessage)
-		errChan := make(chan error)
-
-		go func() {
-			resp, err := sb.RunTooling(ctx, chat)
-			if err != nil {
-				errChan <- err
-				return
-			}
-			resultChan <- resp
-		}()
-
-		select {
-		case resp := <-resultChan:
-			history = append(history, resp...)
-		case err := <-errChan:
+		resp, err := sb.RunTooling(ctx, chat)
+		if err != nil {
 			history = append(history,
 				groq.ChatCompletionMessage{
 					Role:    groq.RoleUser,
 					Content: err.Error(),
 				})
+			continue
 		}
+		history = append(history, resp...)
 	}
 	return nil
 }
