@@ -210,3 +210,107 @@ func withModel[
 		args.model = string(model)
 	}
 }
+
+// TranscriptionRequest represents a request structure for transcription API.
+type TranscriptionRequest struct {
+	// Model is the model to use for the transcription.
+	Model AudioModel
+	// FilePath is either an existing file in your filesystem or a
+	// filename representing the contents of Reader.
+	FilePath string
+	// Reader is an optional io.Reader when you do not want to use
+	// an existing file.
+	Reader io.Reader
+	// Prompt is the prompt for the transcription.
+	Prompt string
+	// Temperature is the temperature for the transcription.
+	Temperature float32
+	// Language is the language for the transcription.
+	Language string
+	// Format is the format for the response.
+	Format Format
+}
+
+// TranslationRequest represents a request structure for translation API.
+type TranslationRequest struct {
+	// Model is the model to use for the translation.
+	Model AudioModel
+	// FilePath is either an existing file in your filesystem or a
+	// filename representing the contents of Reader.
+	FilePath string
+	// Reader is an optional io.Reader when you do not want to use
+	// an existing file.
+	Reader io.Reader
+	// Prompt is the prompt for the translation.
+	Prompt string
+	// Temperature is the temperature for the translation.
+	Temperature float32
+	// Format is the format for the response.
+	Format Format
+}
+
+// Transcribe calls the transcriptions endpoint with the given request.
+//
+// Returns transcribed text in the response_format specified in the request.
+func (c *Client) Transcribe(
+	ctx context.Context,
+	request TranscriptionRequest,
+) (AudioResponse, error) {
+	return c.callAudioAPI(ctx, request, transcriptionsSuffix)
+}
+
+// Translate calls the translations endpoint with the given request.
+//
+// Returns the translated text in the response_format specified in the request.
+func (c *Client) Translate(
+	ctx context.Context,
+	request TranslationRequest,
+) (AudioResponse, error) {
+	return c.callAudioAPI(ctx, request, translationsSuffix)
+}
+
+// callAudioAPI calls the audio API with the given request.
+//
+// Currently supports both the transcription and translation APIs.
+func (c *Client) callAudioAPI(
+	ctx context.Context,
+	request any,
+	endpointSuffix endpoint,
+) (response AudioResponse, err error) {
+	var formBody bytes.Buffer
+	c.requestFormBuilder = builders.NewFormBuilder(&formBody)
+	switch req := request.(type) {
+	case TranscriptionRequest:
+		err = audioMultipartForm(req, c.requestFormBuilder)
+	case TranslationRequest:
+		err = audioMultipartForm(req, c.requestFormBuilder)
+	default:
+		return AudioResponse{}, fmt.Errorf("unsupported request type")
+	}
+	if err != nil {
+		return AudioResponse{}, err
+	}
+	req, err := builders.NewRequest(
+		ctx,
+		c.header,
+		http.MethodPost,
+		c.fullURL(endpointSuffix, withModel(request.Model)),
+		builders.WithBody(&formBody),
+		builders.WithContentType(c.requestFormBuilder.FormDataContentType()),
+	)
+	if err != nil {
+		return AudioResponse{}, err
+	}
+
+	if request.hasJSONResponse() {
+		err = c.sendRequest(req, &response)
+	} else {
+		var textResponse audioTextResponse
+		err = c.sendRequest(req, &textResponse)
+		response = textResponse.toAudioResponse()
+	}
+	if err != nil {
+		return AudioResponse{}, err
+	}
+	return
+}

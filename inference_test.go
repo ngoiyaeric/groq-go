@@ -269,6 +269,45 @@ func TestCreateFileField(t *testing.T) {
 	})
 }
 
+func TestTranscriptionRequest(t *testing.T) {
+	a := assert.New(t)
+	dir, cleanup := test.CreateTestDirectory(t)
+	defer cleanup()
+	path := filepath.Join(dir, "fake.mp3")
+	test.CreateTestFile(t, path)
+
+	req := TranscriptionRequest{
+		FilePath:    path,
+		Prompt:      "test",
+		Temperature: 0.5,
+		Language:    "en",
+		Format:      FormatSRT,
+	}
+
+	mockBuilder := builders.NewFormBuilder(&bytes.Buffer{})
+	err := audioMultipartForm(req, mockBuilder)
+	a.NoError(err, "audioMultipartForm should not return error for valid TranscriptionRequest")
+}
+
+func TestTranslationRequest(t *testing.T) {
+	a := assert.New(t)
+	dir, cleanup := test.CreateTestDirectory(t)
+	defer cleanup()
+	path := filepath.Join(dir, "fake.mp3")
+	test.CreateTestFile(t, path)
+
+	req := TranslationRequest{
+		FilePath:    path,
+		Prompt:      "test",
+		Temperature: 0.5,
+		Format:      FormatSRT,
+	}
+
+	mockBuilder := builders.NewFormBuilder(&bytes.Buffer{})
+	err := audioMultipartForm(req, mockBuilder)
+	a.NoError(err, "audioMultipartForm should not return error for valid TranslationRequest")
+}
+
 // mockFormBuilder is a mock form builder.
 type mockFormBuilder struct {
 	mockCreateFormFile       func(string, *os.File) error
