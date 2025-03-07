@@ -1,7 +1,3 @@
-// Package main shows an example of using the toolhouse go package.
-//
-// It shows how one can add the python code interpreter to their toolhouse
-// tools and use it to execute groq powered llms's code.
 package main
 
 import (
@@ -64,11 +60,26 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("failed to create 1 chat completion: %w", err)
 	}
 	history = append(history, re.Choices[0].Message)
-	r, err := ext.Run(ctx, re)
-	if err != nil {
+
+	resultChan := make(chan []groq.ChatCompletionMessage)
+	errChan := make(chan error)
+
+	go func() {
+		r, err := ext.Run(ctx, re)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		resultChan <- r
+	}()
+
+	select {
+	case r := <-resultChan:
+		history = append(history, r...)
+	case err := <-errChan:
 		return fmt.Errorf("failed to run tool: %w", err)
 	}
-	history = append(history, r...)
+
 	finalr, err := client.ChatCompletion(ctx, groq.ChatCompletionRequest{
 		Model:     groq.ModelLlama3Groq70B8192ToolUsePreview,
 		Messages:  history,
