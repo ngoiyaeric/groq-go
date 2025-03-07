@@ -1,5 +1,3 @@
-// Package main demonstrates how to use groq-go to create a chat application
-// using the groq api accessable through the terminal.
 package main
 
 import (
@@ -75,23 +73,14 @@ func input(
 		Role:    groq.RoleUser,
 		Content: strings.Join(lines, "\n"),
 	})
-	output, err := client.ChatCompletionStream(
-		ctx,
-		groq.ChatCompletionRequest{
-			Model:     groq.ModelGemma29BIt,
-			Messages:  history,
-			MaxTokens: 2000,
-		},
-	)
-	if err != nil {
-		return err
-	}
+	ch := make(chan groq.ChatCompletionStreamResponse)
+	go groq.StreamChatToChannel(ctx, client, groq.ChatCompletionRequest{
+		Model:     groq.ModelGemma29BIt,
+		Messages:  history,
+		MaxTokens: 2000,
+	}, ch)
 	fmt.Fprintln(writer, "\nai: ")
-	for {
-		response, err := output.Recv()
-		if err != nil {
-			return err
-		}
+	for response := range ch {
 		if response.Choices[0].FinishReason == groq.ReasonStop {
 			break
 		}
