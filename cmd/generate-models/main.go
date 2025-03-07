@@ -1,6 +1,3 @@
-// Package main is the main package for the groq-modeler.
-//
-// It is used to generate the models for the groq-go library.
 package main
 
 import (
@@ -89,10 +86,26 @@ func run(ctx context.Context) error {
 	}
 	req.Header.Set("Authorization", "Bearer "+key)
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := client.Do(req)
-	if err != nil {
+
+	// Use a goroutine for the HTTP request
+	respChan := make(chan *http.Response)
+	errChan := make(chan error)
+	go func() {
+		resp, err := client.Do(req)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		respChan <- resp
+	}()
+
+	var resp *http.Response
+	select {
+	case resp = <-respChan:
+	case err = <-errChan:
 		return err
 	}
+
 	defer resp.Body.Close()
 	bodyText, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -146,10 +159,16 @@ func (r *Response) Categorize() (CategorizedModels, error) {
 			r.Data[i].Name = PascalCase(r.Data[i].ID)
 		}
 	}
-	// sort models by name alphabetically
-	sort.Slice(r.Data, func(i, j int) bool {
-		return r.Data[i].Name < r.Data[j].Name
-	})
+	// sort models by name alphabetically using a goroutine
+	sortChan := make(chan struct{})
+	go func() {
+		sort.Slice(r.Data, func(i, j int) bool {
+			return r.Data[i].Name < r.Data[j].Name
+		})
+		sortChan <- struct{}{}
+	}()
+	<-sortChan
+
 	for _, model := range r.Data {
 		if model.ID == "llama-guard-3-8b" {
 			models.ModerationModels = append(models.ModerationModels, model)
