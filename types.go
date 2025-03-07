@@ -531,7 +531,7 @@ const (
 	ModerationPrivacy Moderation = "privacy"
 	// ModerationIntellectualProperty (S8) is the intellectual property
 	// category. Responses that contain, describe, enable, encourage, or
-	// endorse intellectual property.
+		// endorse intellectual property.
 	ModerationIntellectualProperty Moderation = "intellectual_property"
 	// ModerationIndiscriminateWeapons (S9) is the indiscriminate weapons
 	// category.
@@ -752,4 +752,42 @@ func audioMultipartForm(request AudioRequest, b builders.FormBuilder) error {
 		}
 	}
 	return b.Close()
+}
+
+// TranscriptionRequest represents a request structure for transcription API.
+type TranscriptionRequest struct {
+	// Model is the model to use for the transcription.
+	Model AudioModel
+	// FilePath is either an existing file in your filesystem or a
+	// filename representing the contents of Reader.
+	FilePath string
+	// Reader is an optional io.Reader when you do not want to use
+	// an existing file.
+	Reader io.Reader
+	// Prompt is the prompt for the transcription.
+	Prompt string
+	// Temperature is the temperature for the transcription.
+	Temperature float32
+	// Language is the language for the transcription.
+	Language string
+	// Format is the format for the response.
+	Format Format
+}
+
+// TranslationRequest represents a request structure for translation API.
+type TranslationRequest struct {
+	// Model is the model to use for the translation.
+	Model AudioModel
+	// FilePath is either an existing file in your filesystem or a
+	// filename representing the contents of Reader.
+	FilePath string
+	// Reader is an optional io.Reader when you do not want to use
+	// an existing file.
+	Reader io.Reader
+	// Prompt is the prompt for the translation.
+	Prompt string
+	// Temperature is the temperature for the translation.
+	Temperature float32
+	// Format is the format for the response.
+	Format Format
 }
