@@ -1,6 +1,7 @@
 package groq
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -99,6 +100,51 @@ func (c *Client) SignifyTaskCompletion(taskID string) error {
 		return fmt.Errorf("failed to signify task completion: %s", res.Status)
 	}
 	return nil
+}
+
+// StreamChatToChannel streams chat completions to a provided channel.
+func (c *Client) StreamChatToChannel(
+	ctx context.Context,
+	client *Client,
+	request ChatCompletionRequest,
+	ch chan<- ChatCompletionStreamResponse,
+) {
+	defer close(ch)
+	stream, err := client.ChatCompletionStream(ctx, request)
+	if err != nil {
+		ch <- ChatCompletionStreamResponse{
+			Choices: []ChatCompletionStreamChoice{
+				{
+					FinishReason: ReasonStop,
+					Delta: ChatCompletionStreamChoiceDelta{
+						Content: fmt.Sprintf("error: %v", err),
+					},
+				},
+			},
+		}
+		return
+	}
+	defer stream.Close()
+	for {
+		response, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			ch <- ChatCompletionStreamResponse{
+				Choices: []ChatCompletionStreamChoice{
+					{
+						FinishReason: ReasonStop,
+						Delta: ChatCompletionStreamChoiceDelta{
+							Content: fmt.Sprintf("error: %v", err),
+						},
+					},
+				},
+			}
+			return
+		}
+		ch <- response
+	}
 }
 
 // fullURL returns full URL for request.

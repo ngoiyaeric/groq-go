@@ -308,3 +308,66 @@ func (fb *mockFormBuilder) Close() error {
 func (fb *mockFormBuilder) FormDataContentType() string {
 	return ""
 }
+
+func TestStreamChatToChannel(t *testing.T) {
+	a := assert.New(t)
+	ctx := context.Background()
+	client, server, teardown := setupGroqTestServer()
+	defer teardown()
+
+	server.RegisterHandler("/v1/chat/completions", func(w http.ResponseWriter, r *http.Request) {
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "Streaming unsupported!", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+
+		// Simulate streaming responses
+		for i := 0; i < 3; i++ {
+			response := ChatCompletionStreamResponse{
+				ID:      "chatcmpl-123",
+				Object:  "chat.completion.chunk",
+				Created: 1693721698,
+				Model:   "llama3-groq-70b-8192-tool-use-preview",
+				Choices: []ChatCompletionStreamChoice{
+					{
+						Index: 0,
+						Delta: ChatCompletionStreamChoiceDelta{
+							Content: fmt.Sprintf("Response part %d", i+1),
+						},
+					},
+				},
+			}
+			jsval, err := json.Marshal(response)
+			a.NoError(err)
+			_, err = fmt.Fprintf(w, "data: %s\n\n", jsval)
+			a.NoError(err)
+			flusher.Flush()
+		}
+
+		// Send the end of the stream
+		_, err := fmt.Fprintf(w, "data: [DONE]\n\n")
+		a.NoError(err)
+		flusher.Flush()
+	})
+
+	ch := make(chan ChatCompletionStreamResponse)
+	go client.StreamChatToChannel(ctx, client, ChatCompletionRequest{
+		Model:    ModelLlama3Groq70B8192ToolUsePreview,
+		Messages: []ChatCompletionMessage{{Role: RoleUser, Content: "Hello!"}},
+	}, ch)
+
+	var responses []ChatCompletionStreamResponse
+	for response := range ch {
+		responses = append(responses, response)
+	}
+
+	a.Len(responses, 3)
+	a.Equal("Response part 1", responses[0].Choices[0].Delta.Content)
+	a.Equal("Response part 2", responses[1].Choices[0].Delta.Content)
+	a.Equal("Response part 3", responses[2].Choices[0].Delta.Content)
+}
