@@ -19,6 +19,7 @@
 - Supports [E2b](https://e2b.dev/) function calling. [Extention](https://github.com/conneroisu/groq-go/tree/main/extensions/e2b)
 - Supports [Composio](https://composio.dev/) function calling. [Extention](https://github.com/conneroisu/groq-go/tree/main/extensions/composio)
 - Supports [Jigsaw Stack](https://jigsawstack.com/) function calling. [Extention](https://github.com/conneroisu/groq-go/tree/main/extensions/jigsawstack)
+- Supports task completion by an LLM.
 
 ## Installation
 
@@ -42,6 +43,31 @@ For introductory examples, see the [examples](https://github.com/conneroisu/groq
 External Repositories using groq-go:
 - [Automatic Git Commit Message Generator](https://github.com/conneroisu/gita)
 
+### Example usage of SignifyTaskCompletion method
+
+```go
+package main
+
+import (
+	"log"
+	"context"
+	"github.com/conneroisu/groq-go"
+)
+
+func main() {
+	client, err := groq.NewClient("your-api-key")
+	if err != nil {
+		log.Fatalf("Failed to create client: %v", err)
+	}
+
+	err = client.SignifyTaskCompletion("task-id")
+	if err != nil {
+		log.Fatalf("Failed to signify task completion: %v", err)
+	}
+
+	log.Println("Task completion signified successfully")
+}
+```
 
 ## Development
 
@@ -120,6 +146,7 @@ API Documentation: https://console.groq.com/docs/quickstart
   - [func \(c \*Client\) Moderate\(ctx context.Context, messages \[\]ChatCompletionMessage, model ModerationModel\) \(response \[\]Moderation, err error\)](<#Client.Moderate>)
   - [func \(c \*Client\) Transcribe\(ctx context.Context, request AudioRequest\) \(AudioResponse, error\)](<#Client.Transcribe>)
   - [func \(c \*Client\) Translate\(ctx context.Context, request AudioRequest\) \(AudioResponse, error\)](<#Client.Translate>)
+  - [func \(c \*Client\) SignifyTaskCompletion\(taskID string\) error](<#Client.SignifyTaskCompletion>)
 - [type FinishReason](<#FinishReason>)
   - [func \(r FinishReason\) MarshalJSON\(\) \(\[\]byte, error\)](<#FinishReason.MarshalJSON>)
 - [type Format](<#Format>)
@@ -875,7 +902,7 @@ Transcribe calls the transcriptions endpoint with the given request.
 Returns transcribed text in the response\_format specified in the request.
 
 <a name="Client.Translate"></a>
-### func \(\*Client\) [Translate](<https://github.com/conneroisu/groq-go/blob/main/inference.go#L171-L174>)
+### func \(\*Client) [Translate](<https://github.com/conneroisu/groq-go/blob/main/inference.go#L171-L174>)
 
 ```go
 func (c *Client) Translate(ctx context.Context, request AudioRequest) (AudioResponse, error)
@@ -884,6 +911,15 @@ func (c *Client) Translate(ctx context.Context, request AudioRequest) (AudioResp
 Translate calls the translations endpoint with the given request.
 
 Returns the translated text in the response\_format specified in the request.
+
+<a name="Client.SignifyTaskCompletion"></a>
+### func \(\*Client) [SignifyTaskCompletion](<https://github.com/conneroisu/groq-go/blob/main/groq.go#L171-L174>)
+
+```go
+func (c *Client) SignifyTaskCompletion(taskID string) error
+```
+
+SignifyTaskCompletion signifies task completion by an LLM.
 
 <a name="FinishReason"></a>
 ## type [FinishReason](<https://github.com/conneroisu/groq-go/blob/main/types.go#L307>)

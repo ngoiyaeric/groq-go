@@ -848,3 +848,49 @@ func handleAudioEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
+// TestSignifyTaskCompletion tests the SignifyTaskCompletion method of the client.
+func TestSignifyTaskCompletion(t *testing.T) {
+	client, server, teardown := setupGroqTestServer()
+	defer teardown()
+	server.RegisterHandler(
+		"/v1/task/completion",
+		handleSignifyTaskCompletionEndpoint,
+	)
+	a := assert.New(t)
+	err := client.SignifyTaskCompletion("task-id")
+	a.NoError(err, "SignifyTaskCompletion error")
+}
+
+// handleSignifyTaskCompletionEndpoint handles the signify task completion endpoint.
+func handleSignifyTaskCompletionEndpoint(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	_, err := w.Write([]byte(`{"status": "success"}`))
+	if err != nil {
+		http.Error(w, "failed to write response", http.StatusInternalServerError)
+		return
+	}
+}
+
+// TestSignifyTaskCompletionError tests the SignifyTaskCompletion method of the client with an error response.
+func TestSignifyTaskCompletionError(t *testing.T) {
+	client, server, teardown := setupGroqTestServer()
+	defer teardown()
+	server.RegisterHandler(
+		"/v1/task/completion",
+		handleSignifyTaskCompletionErrorEndpoint,
+	)
+	a := assert.New(t)
+	err := client.SignifyTaskCompletion("task-id")
+	a.Error(err, "SignifyTaskCompletion should return error")
+}
+
+// handleSignifyTaskCompletionErrorEndpoint handles the signify task completion endpoint with an error response.
+func handleSignifyTaskCompletionErrorEndpoint(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusInternalServerError)
+	_, err := w.Write([]byte(`{"status": "error"}`))
+	if err != nil {
+		http.Error(w, "failed to write response", http.StatusInternalServerError)
+		return
+	}
+}
